@@ -1,11 +1,30 @@
 from pathlib import Path
 from tkinter import Tk, Canvas, Button, PhotoImage, Entry, StringVar, OptionMenu
 import Backended
-from Backended import clear_screen, stations
+from Backended import clear_screen, stations, get_top_headlines
+import requests
 
 # Pad naar de assets-map instellen
 OUTPUT_PATH = Path(__file__).parent
 ASSETS_PATH = OUTPUT_PATH / Path(r"/Users/kemian/Desktop/Ns/Merge")
+
+def update_weather():
+    try:
+        api_key = "40c1ca35cfc26a2dfb519d71ebcc4bc4"
+        stadnaam = "Zwolle"
+        url = f"http://api.openweathermap.org/data/2.5/weather?appid={api_key}&q={stadnaam}"
+        response = requests.get(url)
+        weer_data = response.json()
+        temperatuur = weer_data['main']['temp'] - 273.15
+        weather_label.config(text=f"Temperatuur: {temperatuur:.2f} °C")
+    finally:
+        window.after(60000, update_weather)
+
+def display_headlines(headlines):
+    y_position = 100  # Beginpositie voor de headlines
+    for headline in headlines[:5]:
+        canvas.create_text(650, y_position, anchor="center", text=headline['title'], fill="#121212", font=("Helvetica", 10))
+        y_position += 20
 
 
 def relative_to_assets(path: str) -> Path:
@@ -30,13 +49,16 @@ image_image5 = PhotoImage(file=relative_to_assets("Finalbg.png"))
 image_image6 = PhotoImage(file=relative_to_assets("TheLastTrain.png"))
 global_button = None
 
+
 def show_messages_for_station(station_name):
     messages = Backended.get_messages_by_station(station_name)
     y_position = 450
     x_position = 590
     for msg in messages:
-        canvas.create_text(x_position, y_position, anchor="nw", text=msg[1], fill="#121212", font=("Helvetica", 22 * -1))
+        canvas.create_text(x_position, y_position, anchor="nw", text=msg[1], fill="#121212",
+                           font=("Helvetica", 22 * -1))
         y_position += 30
+
 
 # homepagina
 def show_home():
@@ -57,7 +79,7 @@ def show_home():
     button_1 = Button(canvas, image=button_image_1, borderwidth=0, highlightthickness=0, command=berichtenpage,
                       relief="flat")
     button_1.place(x=508.0, y=356.0, width=262.0, height=59.0)
-    button_1.image = button_image_1  # Bewaar een referentie naar de afbeelding
+    button_1.image = button_image_1
     button_1.image = button_image_1
     global_button = button_1  # Sla de knop op in de globale variabele
 
@@ -68,7 +90,6 @@ def submit_message():
     name = entry_1.get()
     message = entry_2.get()
     station = selected_station.get()
-
 
     if not name.strip():
         # Als er geen naam is ingevuld, gebruik "Anoniem"
@@ -86,13 +107,13 @@ def submit_message():
         print("Selecteer een geldig station.")
         return
 
-
     try:
 
         Backended.add_message(message, name, station)
         print("Bericht succesvol verzonden.")
     except Exception as e:
         print(f"Er is een fout opgetreden: {e}")
+
 
 def handle_submit_and_navigate():
     submit_message()
@@ -105,6 +126,9 @@ def handle_submit_and_navigate():
         entry_2.destroy()
     station_menu.destroy()
     Finalpage()
+
+
+
 # tweede pagina
 def berichtenpage():
     global global_button, entry_1, entry_2, selected_station, station_menu, button_2
@@ -134,11 +158,11 @@ def berichtenpage():
 
     # button
     button_image_2 = PhotoImage(file=relative_to_assets("button_1.png"))
-    button_2 = Button(canvas, image=button_image_2, borderwidth=0, highlightthickness=0, command=handle_submit_and_navigate,
+    button_2 = Button(canvas, image=button_image_2, borderwidth=0, highlightthickness=0,
+                      command=handle_submit_and_navigate,
                       relief="flat")
     button_2.place(x=528.0, y=456.0, width=237.0, height=65.0)
-    button_2.image = button_image_2  #  referentie naar de afbeelding
-
+    button_2.image = button_image_2
     # Tekstveld
     entry_image_1 = PhotoImage(file=relative_to_assets("entry_1.png"))
     canvas.create_image(362.5, 360.0, image=entry_image_1)
@@ -152,31 +176,41 @@ def berichtenpage():
     entry_2 = Entry(canvas, bd=0, bg="#FFFFFF", fg="#000716", highlightthickness=0)
     entry_2.place(x=867.0, y=336.0, width=327.0, height=57.0)
 
-    # Zorg ervoor dat de afbeelding van het tekstveld niet wordt verwijderd door Python's garbage collector
+
     canvas.image = entry_image_1, entry_image_2, button_image_2, station_menu
+
 
 def Finalpage():
     canvas.delete("all")  # Verwijdert alle items van het canvas
     canvas.create_image(650.0, 360.0, image=image_image5)
 
     # tekst op scherm
-    canvas.create_text(212.0,56.0,anchor="nw",text="Welkom op staion",fill="#121212",font=("Sora Bold", 64 * -1))
-    canvas.create_text(12.0,577.0,anchor="nw",text="Faciliteiten op dit station:",fill="#0E0D0D",font=("Inter", 24 * -1)
-    )
+    canvas.create_text(312.0, 56.0, anchor="nw", text="Welkom op het station", fill="#121212", font=("Sora Bold", 64 * -1))
+    canvas.create_text(12.0, 577.0, anchor="nw", text="Faciliteiten op dit station:", fill="#0E0D0D",
+                       font=("Inter", 24 * -1)
+                       )
 
-    #trein
+    # trein
     canvas.create_image(840.0, 700.0, image=image_image6)
 
     selected_station = StringVar(window)
     selected_station.set("Kies een station")
     station_menu = OptionMenu(window, selected_station, *stations, command=show_messages_for_station)
     station_menu.config(width=15, font=('Helvetica', 12))
-    station_menu.place(x=512.0, y=170.0)
+    station_menu.place(x=532.0, y=170.0)
 
     show_messages_for_station(selected_station.get())
 
-
-
+    weather_description, temperature = Backended.get_weather_info("Zwolle", "40c1ca35cfc26a2dfb519d71ebcc4bc4")
+    if weather_description and temperature:
+        canvas.create_text(1200, 100, anchor="center",
+                           text=f"Het weer momenteel:\n"
+                                f" {weather_description} bij {temperature} °C", fill="#121212",
+                           font=("Helvetica", 16))
+    api_key = "9bfe008ca34f43179b80dc6d3f770627"
+    headlines = get_top_headlines(api_key)
+    print(headlines)
+    display_headlines(headlines)
 
 
 # canvas voor de achtergrond en inhoud
@@ -184,6 +218,5 @@ canvas = Canvas(window, bg="#FFFFFF", height=720, width=1303, bd=0, highlightthi
 canvas.place(x=0, y=0)
 
 show_home()
-
 
 window.mainloop()

@@ -3,6 +3,7 @@ import datetime
 from pathlib import Path
 from tkinter import Tk, Canvas, Button, PhotoImage, Text, Entry
 print(psycopg2.__version__)
+import requests
 
 #_______________________________________________________________________________________________________________________
 #FRONTEND SECTION
@@ -326,7 +327,84 @@ def get_message_by_id(message_id):
         cursor.close()
         conn.close()
 
+def initialize_station_services():
+    # SQL commando om de station_service tabel te maken
+    create_table_command = """
+    CREATE TABLE IF NOT EXISTS station_service (
+        station_city VARCHAR (50) PRIMARY KEY NOT NULL,
+        country VARCHAR (2) NOT NULL,
+        ov_bike BOOLEAN NOT NULL,
+        elevator BOOLEAN NOT NULL,
+        toilet BOOLEAN NOT NULL,
+        park_and_ride BOOLEAN NOT NULL
+    );
+    """
 
+    # SQL commando om de gegevens in de tabel in te voegen
+    insert_data_command = """
+    INSERT INTO station_service (station_city, country, ov_bike, elevator, toilet, park_and_ride) VALUES
+    ('Almere', 'NL', false, true, false, true),
+    ('Amsterdam', 'NL', false, true, false, true),
+    ('Groningen', 'NL', false, true, false, true),
+    ('Utrecht', 'NL', true, false, true, false),
+    ('Zwolle', 'NL', true, false, true, false)
+    ON CONFLICT (station_city) DO NOTHING;  -- Voorkomt fouten als de rij al bestaat
+    """
+
+    conn = connect_to_db()
+    if conn is None:
+        print("Kon geen verbinding maken met de database voor het maken van station_services.")
+        return
+
+    try:
+        cur = conn.cursor()
+        cur.execute(create_table_command)
+        cur.execute(insert_data_command)
+        conn.commit()
+        print("Station services tabel is succesvol en gegevens zijn ingevoerd.")
+    except Exception as e:
+        print(f"Fout bij het opzetten van de station_service tabel: {e}")
+        conn.rollback()
+    finally:
+        cur.close()
+        conn.close()
+
+
+def update_weather():
+    try:
+        api_key = "40c1ca35cfc26a2dfb519d71ebcc4bc4"
+        stadnaam = "Zwolle"
+        url = f"http://api.openweathermap.org/data/2.5/weather?appid={api_key}&q={stadnaam}"
+        response = requests.get(url)
+        weer_data = response.json()
+        temperatuur = weer_data['main']['temp'] - 273.15  # Converteer van Kelvin naar Celsius
+        weather_label.config(text=f"Temperatuur: {temperatuur:.2f} °C")
+    finally:
+        window.after(60000, update_weather)  # Update elke 60 seconden
+
+def get_weather_info(city_name, api_key):
+    try:
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={city_name}&appid={api_key}&units=metric"
+        response = requests.get(url)
+        response.raise_for_status()
+        weather_data = response.json()
+
+        return weather_data['weather'][0]['description'], weather_data['main']['temp']
+    except requests.RequestException as e:
+        print(f"Error fetching weather data: {e}")
+        return None, None
+
+def get_top_headlines(api_key, country='nl'):
+    url = f'https://newsapi.org/v2/top-headlines?country={country}&apiKey={api_key}'
+    response = requests.get(url)
+    return response.json()
+
+
+api_key = '9bfe008ca34f43179b80dc6d3f770627'
+headlines = get_top_headlines(api_key)
+
+for article in headlines['articles']:
+    print(article['title'])
 
 
 
